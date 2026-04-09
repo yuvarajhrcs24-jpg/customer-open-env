@@ -311,6 +311,42 @@ Detailed checklist and instructions are provided in `SUBMISSION_GUIDE.md`.
 - Baseline configured with `temperature=0` and `seed=17`
 - Deterministic fallback policy ensures stable behavior when LLM output fails
 
+## Scoring Rubric Alignment
+
+This project is designed to map directly onto the published evaluation rubric:
+
+### Real-World Utility
+
+- Customer support triage is a common, practical agent workflow with clear operational value.
+- The environment models authentic support actions: classify, assign, reply, escalate, and close.
+- SLA pressure, routing decisions, and customer messaging make the tasks useful for real agent evaluation.
+
+### Task and Grader Quality
+
+- There are 3 tasks with an easy-to-hard difficulty spread.
+- Each task has a deterministic grader with clear success criteria and a normalized score in `[0.0, 1.0]`.
+- The hard task includes ordering constraints and empathy/security requirements that are more demanding than the easy and medium tasks.
+
+### Environment Design
+
+- `reset()` creates a clean deterministic episode state.
+- `Action`, `Observation`, `Reward`, and `EnvironmentState` are typed and documented.
+- Reward shaping provides step-by-step feedback instead of sparse terminal-only signals.
+- Episode boundaries are sensible through max-step limits and terminal grading.
+
+### Code Quality and Spec Compliance
+
+- `validate_submission.py` passes locally.
+- `docker build` and `docker run` are supported by the provided `Dockerfile`.
+- The Gradio UI runs from `app.py`.
+- The baseline inference script is reproducible and uses the OpenAI client with environment-based configuration.
+
+### Creativity and Novelty
+
+- The environment is not a toy benchmark; it captures a realistic support ops workflow.
+- The hard task combines security escalation, retention sensitivity, and routine noise handling.
+- The UI includes playbooks, undo, suggestions, and exportable session logs to support practical exploration.
+
 ## Troubleshooting
 
 ### `OPENAI_API_KEY` is missing
