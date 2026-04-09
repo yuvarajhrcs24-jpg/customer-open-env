@@ -227,6 +227,26 @@ Then open:
 - Local: `http://localhost:7860`
 - If `share=True` is enabled: a temporary public Gradio URL appears in terminal output
 
+### Updated Interface Highlights
+
+The app now includes a richer operator-focused layout:
+
+- Hero overview panel with task context and interaction tips
+- Left control rail for scenario selection, reset/step controls, and editable action JSON
+- Quick action templates for common flows (classify, assign, reply, close)
+- Right-side tabs for structured `Observation` and `Step Result` JSON output
+- Real-time status banner for success/error feedback
+- Two summary cards:
+  - `Episode Snapshot`: queue health, progress counters, and ticket status list
+  - `Step Insight`: reward score, progress delta, penalties, done state, and reason
+
+### Recommended Usage Flow
+
+1. Choose a scenario and click `Reset Task`
+2. Use `Load Template` for a starter action or edit JSON manually
+3. Click `Step` and inspect both the JSON tabs and summary cards
+4. Iterate until `done=true` and review the final grading details in `Step Result`
+
 ## Docker and Hugging Face Spaces Deployment
 
 ### Build and run locally

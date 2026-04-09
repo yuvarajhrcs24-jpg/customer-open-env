@@ -2,6 +2,24 @@
 
 This document shows what happens when you interact with the web interface.
 
+## Updated UI Overview
+
+The interface is now organized for faster manual operations and clearer feedback:
+
+- Left panel: scenario picker, `Reset Task`, `Step`, quick action template loader, editable `Action JSON`
+- Right panel: tabbed JSON views for `Observation` and `Step Result`
+- Top status banner: immediate success/error messages after reset and step actions
+- Summary cards:
+  - `Episode Snapshot`: queue counts, step counters, and compact ticket list
+  - `Step Insight`: score, progress, penalties, done flag, and step reason
+
+### Quick Start In The UI
+
+1. Select scenario and click `Reset Task`
+2. Pick a quick template and click `Load Template` (or edit JSON manually)
+3. Click `Step` to apply the action
+4. Use `Step Result` and summary cards to guide the next action
+
 ## Task 1: Easy - Password Reset
 
 ### Initial State (After Reset)
