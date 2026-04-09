@@ -1,0 +1,28 @@
+name: customer-support-ticket-env
+version: 0.1.0
+description: >
+  OpenEnv environment simulating customer support ticket triage and resolution workflows.
+entrypoint:
+  module: customer_support_env.env
+  class: CustomerSupportEnv
+language: python
+tags:
+  - openenv
+  - customer-support
+  - operations
+  - simulation
+maintainers:
+  - name: yuvarajhrcs24-jpg
+action_model: customer_support_env.models.Action
+observation_model: customer_support_env.models.Observation
+reward_model: customer_support_env.models.Reward
+tasks:
+  - id: easy_password_reset
+    difficulty: easy
+    description: Resolve one password reset ticket end-to-end.
+  - id: medium_billing_and_outage
+    difficulty: medium
+    description: Prioritize outage and resolve billing queue correctly.
+  - id: hard_security_and_retention
+    difficulty: hard
+    description: Handle security escalation and retention-risk queue.
