@@ -253,7 +253,7 @@ python app.py
 Then open:
 
 - Local: `http://localhost:7860`
-- If `share=True` is enabled: a temporary public Gradio URL appears in terminal output
+- Share tunneling is intentionally disabled in this project for Space safety/compliance
 
 ### Updated Interface Highlights
 
