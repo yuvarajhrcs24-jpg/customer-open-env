@@ -315,6 +315,27 @@ Detailed checklist and instructions are provided in `SUBMISSION_GUIDE.md`.
 
 This project is designed to map directly onto the published evaluation rubric:
 
+### Judging Workflow
+
+Submission review happens in three phases:
+
+- Phase 1: Automated validation
+  - Checks HF Space deployment, OpenEnv spec compliance, Docker build/run, baseline reproducibility, and 3+ graded tasks.
+- Phase 2: Agentic evaluation
+  - Re-runs the baseline agent and standard OpenLLM agents against the environment to compare behavior and score variance.
+- Phase 3: Human review
+  - Reviews top submissions for real-world utility, creativity, and exploit resistance.
+
+### Disqualification Safeguards
+
+The repository is built to avoid the most common disqualification causes:
+
+- The environment deploys and responds from the provided Dockerfile and Gradio app.
+- The implementation is not a trivial wrapper: it includes a real support workflow, typed models, task logic, reward shaping, and deterministic graders.
+- Graders do not return a fixed score; they evaluate state and action history deterministically.
+- A baseline inference script is included and reproducible across all three tasks.
+- The project includes 3+ tasks with a difficulty range and clear success criteria.
+
 ### Real-World Utility
 
 - Customer support triage is a common, practical agent workflow with clear operational value.
