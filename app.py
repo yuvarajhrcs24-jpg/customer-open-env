@@ -912,6 +912,5 @@ with gr.Blocks(title="Customer Support OpenEnv", css=CUSTOM_CSS) as demo:
 
 
 if __name__ == "__main__":
-    # Spaces should run without a tunnel/share proxy to avoid abuse flags.
-    share_enabled = os.getenv("GRADIO_SHARE", "0") == "1"
-    demo.launch(server_name="0.0.0.0", server_port=7860, share=share_enabled)
+    # Never enable share tunnel in Spaces; this can trigger abuse/proxy flags.
+    demo.launch(server_name="0.0.0.0", server_port=7860, share=False)
