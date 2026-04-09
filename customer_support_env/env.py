@@ -38,6 +38,10 @@ class CustomerSupportEnv:
         grader: TaskGrader for computing scores
     """
 
+    SLA_DECAY_PER_STEP = 5
+    SLA_BREACH_STEP_PENALTY = -0.02
+    SLA_BREACH_PENALTY_FLOOR = -0.12
+
     def __init__(self, default_task_id: str = "easy_password_reset") -> None:
         self.tasks: Dict[str, TaskSpec] = build_task_registry()
         if default_task_id not in self.tasks:
@@ -139,10 +143,15 @@ class CustomerSupportEnv:
         loop_penalty = self._loop_penalty()
         action_penalty += loop_penalty
 
+        sla_penalty = self._apply_sla_decay()
+        total_penalties = action_penalty + sla_penalty
+        if sla_penalty < 0 and reason == "Action applied":
+            reason = "Action applied under SLA pressure"
+
         current_progress = self.grader.partial_score(self._state)
         delta_progress = current_progress - self._last_progress
 
-        step_reward = delta_progress - 0.01 + action_penalty
+        step_reward = delta_progress - 0.01 + total_penalties
 
         done = current_progress >= 0.999 or self._state.step_count >= self._max_steps
         self._state.done = done
@@ -171,7 +180,7 @@ class CustomerSupportEnv:
         reward = Reward(
             score=round(step_reward, 4),
             progress=round(current_progress, 4),
-            penalties=round(action_penalty, 4),
+            penalties=round(total_penalties, 4),
             reason=reason,
         )
 
@@ -279,6 +288,20 @@ class CustomerSupportEnv:
             return -0.05
         return 0.0
 
+    def _apply_sla_decay(self) -> float:
+        """Decay SLAs each step and penalize active SLA breaches."""
+        breached_active = 0
+        for ticket in self._state.tickets.values():
+            if ticket.status.value == "closed":
+                continue
+            ticket.sla_minutes_remaining = max(0, ticket.sla_minutes_remaining - self.SLA_DECAY_PER_STEP)
+            if ticket.sla_minutes_remaining == 0:
+                breached_active += 1
+
+        if breached_active == 0:
+            return 0.0
+        return max(self.SLA_BREACH_PENALTY_FLOOR, self.SLA_BREACH_STEP_PENALTY * breached_active)
+
     def _build_observation(self, hints: List[str]) -> Observation:
         """Construct Observation from current state."""
         summaries = []
@@ -336,6 +359,8 @@ class CustomerSupportEnv:
         hints: List[str] = []
         if any(ticket.sla_minutes_remaining <= 60 for ticket in self._state.tickets.values()):
             hints.append("At least one ticket has <= 60 minutes remaining SLA; prioritize it.")
+        if any(ticket.sla_minutes_remaining <= 0 and ticket.status.value != "closed" for ticket in self._state.tickets.values()):
+            hints.append("At least one open ticket has breached SLA. Prioritize immediate resolution.")
         if self._state.task_id == "hard_security_and_retention":
             hints.append("Security incidents should usually be escalated before closure.")
         if self._state.step_count > self._max_steps // 2:

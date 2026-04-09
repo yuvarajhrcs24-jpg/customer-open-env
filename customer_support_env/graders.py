@@ -17,6 +17,39 @@ def _contains_any(texts: List[str], words: List[str]) -> bool:
     return any(word in joined for word in words)
 
 
+def _count_hits(text: str, words: List[str]) -> int:
+    lowered = text.lower()
+    return sum(1 for word in words if word in lowered)
+
+
+def _contains_at_least(texts: List[str], words: List[str], min_hits: int) -> bool:
+    joined = " ".join(texts)
+    return _count_hits(joined, words) >= min_hits
+
+
+def _has_quality_reply(texts: List[str], required_words: List[str], min_tokens: int = 8) -> bool:
+    for text in texts:
+        lowered = text.lower()
+        if len(lowered.split()) < min_tokens:
+            continue
+        if all(word in lowered for word in required_words):
+            return True
+    return False
+
+
+def _has_empathetic_commitment_reply(texts: List[str]) -> bool:
+    empathy_words = ["sorry", "understand", "apolog", "concern", "frustrat"]
+    commitment_words = ["improve", "priority", "prioritize", "resolve", "follow up"]
+
+    for text in texts:
+        lowered = text.lower()
+        if len(lowered.split()) < 10:
+            continue
+        if _count_hits(lowered, empathy_words) >= 2 and _count_hits(lowered, commitment_words) >= 1:
+            return True
+    return False
+
+
 class TaskGrader:
     """Deterministic grader for all tasks.
     
@@ -118,7 +151,7 @@ class TaskGrader:
             "outage_closed": 0.2 if outage.status.value == "closed" else 0.0,
             "billing_assigned_and_refund_reply": 0.2
             if billing.assigned_team == TeamName.BILLING
-            and _contains_any(billing.public_replies, ["refund", "charged", "invoice"])
+            and _contains_at_least(billing.public_replies, ["refund", "charged", "invoice", "billing"], 2)
             else 0.0,
             "billing_closed": 0.15 if billing.status.value == "closed" else 0.0,
             "avoid_unnecessary_escalation": 0.05
@@ -155,11 +188,12 @@ class TaskGrader:
             "security_closed": 0.15 if security.status.value == "closed" else 0.0,
             "retention_assignment": 0.15 if retention.assigned_team == TeamName.RETENTION else 0.0,
             "retention_empathetic_reply": 0.15
-            if _contains_any(retention.public_replies, ["sorry", "understand", "improve", "priority"])
+            if _has_empathetic_commitment_reply(retention.public_replies)
             else 0.0,
             "retention_closed": 0.1 if retention.status.value == "closed" else 0.0,
             "shipping_handled": 0.1
-            if shipping.status.value in {"pending", "closed"} and len(shipping.public_replies) > 0
+            if shipping.status.value in {"pending", "closed"}
+            and _has_quality_reply(shipping.public_replies, ["package"], min_tokens=6)
             else 0.0,
         }
         return score

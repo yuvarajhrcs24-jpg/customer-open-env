@@ -4,7 +4,7 @@
 Runs the Customer Support OpenEnv environment with LLM + deterministic fallback.
 
 Environment Variables (all optional):
-    - OPENAI_API_KEY: Required for LLM calls (string)
+    - OPENAI_API_KEY: Optional. If missing, deterministic fallback policy is used.
     - API_BASE_URL: API endpoint (default: https://api.openai.com/v1)
     - MODEL_NAME: Model to use (default: gpt-4o-mini)
     - HF_TOKEN: HF auth (optional)
@@ -45,9 +45,7 @@ LOCAL_IMAGE_NAME = os.getenv("LOCAL_IMAGE_NAME")
 
 # Derive API key from environment (OpenAI-specific)
 API_KEY = os.getenv("OPENAI_API_KEY")
-
-if not API_KEY:
-    raise RuntimeError("OPENAI_API_KEY environment variable must be set")
+USE_LLM = bool(API_KEY)
 
 
 # ============================================================================
@@ -190,7 +188,7 @@ def _rule_policy(task_id: str, obs: Dict[str, Any]) -> Dict[str, Any]:
     return {"action_type": "add_internal_note", "ticket_id": summaries[0]["ticket_id"], "content": "fallback"}
 
 def _llm_action(
-    client: OpenAI,
+    client: OpenAI | None,
     model: str,
     task_id: str,
     objective: str,
@@ -213,6 +211,10 @@ def _llm_action(
     Side effects:
         On error with fallback=True, calls _rule_policy() instead of raising
     """
+    if client is None:
+        parsed_obs = json.loads(observation_json)
+        return _rule_policy(task_id, parsed_obs)
+
     system = (
         "You are a customer support operations agent. Return exactly one JSON object for the next action. "
         "No prose. Use fields from: action_type, ticket_id, category, priority, assigned_team, content."
@@ -267,10 +269,12 @@ def run_task(
 
     _log_start(task_id, obs.task_objective)
 
-    client = OpenAI(
-        api_key=API_KEY,
-        base_url=API_BASE_URL,
-    )
+    client = None
+    if USE_LLM:
+        client = OpenAI(
+            api_key=API_KEY,
+            base_url=API_BASE_URL,
+        )
 
     done = False
     steps = 0
@@ -312,6 +316,7 @@ def main() -> None:
     print(f"Running Customer Support OpenEnv Baseline", file=sys.stderr)
     print(f"Model: {MODEL_NAME}", file=sys.stderr)
     print(f"API Base URL: {API_BASE_URL}", file=sys.stderr)
+    print(f"LLM enabled: {USE_LLM}", file=sys.stderr)
     print()
 
     results = {}
