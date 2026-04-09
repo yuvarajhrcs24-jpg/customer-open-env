@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import json
 from typing import Any
 
@@ -17,13 +18,10 @@ Provides interactive exploration of the environment:
 - Monitor reward signals and progress
 """
 
-# Initialize environment with default task
 env = CustomerSupportEnv(default_task_id="easy_password_reset")
 
+
 def start_task(task_id: str) -> tuple[str, str]:
-    obs = env.reset(task_id=task_id)
-    return obs.model_dump_json(indent=2), "Task reset complete. Submit an action JSON to step the environment."
-    """Reset to a specified task and show initial observation."""
     try:
         obs = env.reset(task_id=task_id)
         return obs.model_dump_json(indent=2), "✓ Task reset. Submit an action JSON below."
@@ -86,5 +84,6 @@ Interactive environment for customer support ticket operations.
 
 
 if __name__ == "__main__":
-    # Launch with share=True for public URL, share=False for local only
-    demo.launch(server_name="0.0.0.0", server_port=7860, share=True)
+    # Spaces should run without a tunnel/share proxy to avoid abuse flags.
+    share_enabled = os.getenv("GRADIO_SHARE", "0") == "1"
+    demo.launch(server_name="0.0.0.0", server_port=7860, share=share_enabled)
