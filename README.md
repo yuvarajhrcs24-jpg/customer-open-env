@@ -25,6 +25,8 @@ This project simulates realistic support operations where an agent must classify
 - [OpenEnv API](#openenv-api)
 - [Task Catalog](#task-catalog)
 - [Reward and Grading Design](#reward-and-grading-design)
+- [Space Definitions](#space-definitions)
+- [Baseline Scores](#baseline-scores)
 - [Project Structure](#project-structure)
 - [Quickstart](#quickstart)
 - [Run the Inference Baseline](#run-the-inference-baseline)
@@ -85,6 +87,20 @@ The environment implements:
 - `step(action: Action) -> tuple[Observation, Reward, bool, info]`
 - `state() -> EnvironmentState`
 
+### Space Definitions
+
+This project uses typed Pydantic models to define the environment interface:
+
+- **Action space**: `customer_support_env.models.Action`
+  - Required fields depend on `action_type`
+  - Supported action types are listed below
+- **Observation space**: `customer_support_env.models.Observation`
+  - Includes task metadata, queue counts, ticket summaries, available actions, and hints
+- **Reward space**: `customer_support_env.models.Reward`
+  - Provides shaped step feedback with score, progress, penalties, and reason
+- **State space**: `customer_support_env.models.EnvironmentState`
+  - Returns the full internal ticket state, action history, and completion flag
+
 ### Action Types
 
 Supported `Action.action_type` values:
@@ -127,6 +143,18 @@ Each observation includes queue and task context:
 | `hard_security_and_retention` | hard | Security escalation + churn-risk retention + shipping noise | 11 |
 
 Task metadata is also declared in `openenv.yaml`.
+
+### Baseline Scores
+
+The deterministic fallback policy and bundled playbooks provide a reproducible baseline across all tasks:
+
+| Task ID | Baseline Score | Notes |
+|---|---:|---|
+| `easy_password_reset` | 1.0 | Full classify, assign, reply, close flow |
+| `medium_billing_and_outage` | 1.0 | Outage handled first, billing resolved after |
+| `hard_security_and_retention` | 1.0 | Security escalation and retention flow completed |
+
+Average baseline score: `1.0`
 
 ## Reward and Grading Design
 
