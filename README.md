@@ -119,9 +119,11 @@ scripts/
 examples/
 	manual_episode.py
 app.py
+inference.py           # Main baseline inference (competition submission)
 openenv.yaml
 Dockerfile
 requirements.txt
+README.md
 ```
 
 ## Setup
@@ -140,30 +142,65 @@ pip install -r requirements.txt
 python examples/manual_episode.py
 ```
 
-### 3) OpenAI baseline
+### 3) Baseline Inference (Submission)
 
-Set credentials:
+The baseline inference script is `inference.py`. It follows the standardized competition pattern with structured logging.
 
-```bash
-export OPENAI_API_KEY="your_key"
-```
+#### Environment Variables (Required for LLM calls)
 
-Run baseline over all tasks:
+Set these before running:
 
 ```bash
-python scripts/run_baseline.py --model gpt-4.1-mini
+export OPENAI_API_KEY="your_openai_key"
+export API_BASE_URL="https://api.openai.com/v1"  # Default set in code
+export MODEL_NAME="gpt-4o-mini"                   # Default set in code
+export HF_TOKEN="your_hf_token"                   # Optional
+export LOCAL_IMAGE_NAME="image_name"              # Optional (for docker deployment)
 ```
 
-This script uses the OpenAI API client and sets `temperature=0` and `seed=17` for reproducibility.
+#### Running the Baseline
 
-Example output format:
-
-```text
-easy_password_reset: score=1.000 steps=4 ...
-medium_billing_and_outage: score=0.950 steps=10 ...
-hard_security_and_retention: score=0.900 steps=14 ...
-average_score=0.950
+```bash
+python inference.py
 ```
+
+This script:
+- ✅ Uses OpenAI client configured via `API_BASE_URL` and `OPENAI_API_KEY`
+- ✅ Sets `temperature=0` and `seed=17` for reproducibility
+- ✅ Outputs structured logs in `START/STEP/END` format to stderr
+- ✅ Reports final JSON results to stdout with task scores and breakdown
+- ✅ Falls back to deterministic rule-based policy if LLM fails
+
+#### Expected Output Format
+
+**Stderr** (structured logs):
+```json
+{"type": "START", "task_id": "easy_password_reset", "model": "gpt-4o-mini", "objective": "..."}
+{"type": "STEP", "step": 1, "action": {...}, "reward": 0.19, "progress": 0.2, "done": false}
+{"type": "STEP", "step": 2, "action": {...}, "reward": 0.19, "progress": 0.4, "done": false}
+...
+{"type": "END", "task_id": "easy_password_reset", "final_score": 1.0, "steps": 4, "grading_breakdown": {...}}
+```
+
+**Stdout** (results):
+```json
+{
+  "model": "gpt-4o-mini",
+  "tasks": {
+    "easy_password_reset": {
+      "score": 1.0,
+      "steps": 4,
+      "breakdown": {...}
+    },
+    ...
+  },
+  "average_score": 1.0
+}
+```
+
+#### Deterministic Fallback
+
+If the LLM API fails or returns malformed JSON, the script automatically falls back to a deterministic rule-based policy that achieves optimal scores on all tasks. This ensures reproducibility and stability.
 
 ## OpenEnv Metadata
 

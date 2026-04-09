@@ -7,6 +7,8 @@ from pydantic import BaseModel, Field
 
 
 class TicketStatus(str, Enum):
+    """Ticket lifecycle states."""
+
     OPEN = "open"
     PENDING = "pending"
     ESCALATED = "escalated"
@@ -14,6 +16,8 @@ class TicketStatus(str, Enum):
 
 
 class TicketPriority(str, Enum):
+    """Ticket priority levels."""
+
     LOW = "low"
     NORMAL = "normal"
     HIGH = "high"
@@ -21,6 +25,8 @@ class TicketPriority(str, Enum):
 
 
 class TicketCategory(str, Enum):
+    """Ticket routing categories."""
+
     BILLING = "billing"
     TECHNICAL = "technical"
     SECURITY = "security"
@@ -30,6 +36,8 @@ class TicketCategory(str, Enum):
 
 
 class TeamName(str, Enum):
+    """Support team names for routing."""
+
     FRONTLINE = "frontline"
     BILLING = "billing"
     TECHNICAL = "technical"
@@ -38,6 +46,8 @@ class TeamName(str, Enum):
 
 
 class Ticket(BaseModel):
+    """A customer support ticket."""
+
     ticket_id: str
     customer_name: str
     customer_email: str
@@ -55,6 +65,8 @@ class Ticket(BaseModel):
 
 
 class ActionType(str, Enum):
+    """Agent action types in the environment."""
+
     OPEN_TICKET = "open_ticket"
     CLASSIFY_TICKET = "classify_ticket"
     ASSIGN_TICKET = "assign_ticket"
@@ -66,6 +78,19 @@ class ActionType(str, Enum):
 
 
 class Action(BaseModel):
+    """Agent action in the environment.
+
+    Different action_type values require different fields:
+    - open_ticket: customer_name, customer_email, subject, body
+    - classify_ticket: ticket_id, category, [priority]
+    - assign_ticket: ticket_id, assigned_team
+    - escalate_ticket: ticket_id
+    - add_internal_note: ticket_id, content
+    - draft_reply: ticket_id, content
+    - send_reply: ticket_id, content (or uses draft)
+    - close_ticket: ticket_id
+    """
+
     action_type: ActionType
     ticket_id: Optional[str] = None
     category: Optional[TicketCategory] = None
@@ -79,6 +104,8 @@ class Action(BaseModel):
 
 
 class TicketSummary(BaseModel):
+    """Lightweight ticket summary shown in observations."""
+
     ticket_id: str
     subject: str
     status: TicketStatus
@@ -89,6 +116,16 @@ class TicketSummary(BaseModel):
 
 
 class Observation(BaseModel):
+    """Environment observation returned by reset() and step().
+
+    Contains:
+    - Task metadata (task_id, objective, progress tracking)
+    - Queue state (size, counts by status)
+    - Ticket summaries (read-only snapshot)
+    - Available actions (all legal action types)
+    - Hints (contextual guidance for the agent)
+    """
+
     task_id: str
     task_objective: str
     step_count: int
@@ -103,6 +140,15 @@ class Observation(BaseModel):
 
 
 class Reward(BaseModel):
+    """Reward structure from step().
+
+    Fields:
+    - score: step reward in [-1, 1] (progress + penalties + base cost)
+    - progress: cumulative progress toward task goal in [0, 1]
+    - penalties: sum of negative adjustments applied
+    - reason: human-readable explanation
+    """
+
     score: float = Field(ge=-1.0, le=1.0)
     progress: float = Field(ge=0.0, le=1.0)
     penalties: float
@@ -110,6 +156,8 @@ class Reward(BaseModel):
 
 
 class EnvironmentState(BaseModel):
+    """Full internal environment state (returned by state())."""
+
     task_id: str
     task_objective: str
     step_count: int
@@ -121,6 +169,8 @@ class EnvironmentState(BaseModel):
 
 
 class TaskResult(BaseModel):
+    """Final episode result with grading breakdown."""
+
     task_id: str
     score: float = Field(ge=0.0, le=1.0)
     done: bool

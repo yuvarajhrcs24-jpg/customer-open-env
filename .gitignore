@@ -1,0 +1,11 @@
+# Python cache artifacts
+__pycache__/
+*.py[cod]
+
+# Gradio runtime artifacts
+.gradio/
+
+# Environment files
+.env
+.venv/
+venv/

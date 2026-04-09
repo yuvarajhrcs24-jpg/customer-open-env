@@ -8,15 +8,31 @@ import gradio as gr
 from customer_support_env import Action, CustomerSupportEnv
 
 
-env = CustomerSupportEnv(default_task_id="easy_password_reset")
+"""Gradio web interface for Customer Support OpenEnv.
 
+Provides interactive exploration of the environment:
+- Select difficulty level (easy, medium, hard)
+- Reset task and see initial observation
+- Submit JSON actions and observe results
+- Monitor reward signals and progress
+"""
+
+# Initialize environment with default task
+env = CustomerSupportEnv(default_task_id="easy_password_reset")
 
 def start_task(task_id: str) -> tuple[str, str]:
     obs = env.reset(task_id=task_id)
     return obs.model_dump_json(indent=2), "Task reset complete. Submit an action JSON to step the environment."
+    """Reset to a specified task and show initial observation."""
+    try:
+        obs = env.reset(task_id=task_id)
+        return obs.model_dump_json(indent=2), "✓ Task reset. Submit an action JSON below."
+    except Exception as e:
+        return "", f"❌ Error: {e}"
 
 
 def apply_action(action_json: str) -> tuple[str, str]:
+    """Execute one action and show result."""
     try:
         payload: dict[str, Any] = json.loads(action_json)
         action = Action.model_validate(payload)
@@ -27,12 +43,25 @@ def apply_action(action_json: str) -> tuple[str, str]:
             "info": info,
         }
         return obs.model_dump_json(indent=2), json.dumps(result, indent=2)
+    except json.JSONDecodeError as e:
+        return "", f"❌ Invalid JSON: {str(e)[:100]}"
     except Exception as exc:
-        return "", f"Error: {exc}"
+        return "", f"❌ Error: {str(exc)[:200]}"
 
 
 with gr.Blocks(title="Customer Support OpenEnv") as demo:
-    gr.Markdown("# Customer Support OpenEnv\nUse this panel to interact with the environment step by step.")
+    gr.Markdown("""# 📨 Customer Support OpenEnv
+
+Interactive environment for customer support ticket operations.
+
+**Instructions:**
+1. Select a difficulty level
+2. Click "Reset Task" to initialize
+3. Submit JSON actions to step the environment
+4. Monitor rewards and progress in real-time
+
+**Sample action:** `{"action_type": "classify_ticket", "ticket_id": "T-1001", "category": "account"}`
+""")
 
     with gr.Row():
         task_picker = gr.Dropdown(
@@ -57,4 +86,5 @@ with gr.Blocks(title="Customer Support OpenEnv") as demo:
 
 
 if __name__ == "__main__":
-    demo.launch(server_name="0.0.0.0", server_port=7860)
+    # Launch with share=True for public URL, share=False for local only
+    demo.launch(server_name="0.0.0.0", server_port=7860, share=True)

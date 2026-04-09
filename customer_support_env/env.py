@@ -14,12 +14,29 @@ from customer_support_env.models import (
     TeamName,
     Ticket,
     TicketSummary,
+    TicketCategory,
 )
 from customer_support_env.tasks import TaskSpec, build_task_registry, clone_initial_tickets
 
 
 class CustomerSupportEnv:
-    """OpenEnv-style environment for customer support ticket operations."""
+    """OpenEnv-compliant environment for customer support ticket operations.
+    
+    Simulates a customer support queue where an AI agent must:
+    - Classify incoming tickets
+    - Route to appropriate teams
+    - Communicate with customers
+    - Escalate high-risk cases
+    - Close tickets appropriately
+    
+    Provides shaped reward signals throughout episodes and deterministic
+    grading based on task-specific success criteria.
+    
+    Attributes:
+        tasks: Available task specs by ID
+        default_task_id: Default task when not specified
+        grader: TaskGrader for computing scores
+    """
 
     def __init__(self, default_task_id: str = "easy_password_reset") -> None:
         self.tasks: Dict[str, TaskSpec] = build_task_registry()
@@ -34,6 +51,18 @@ class CustomerSupportEnv:
         self._last_progress = 0.0
 
     def reset(self, task_id: str | None = None) -> Observation:
+        """Reset environment to initial state for a task.
+        
+        Args:
+            task_id: Task identifier ("easy_password_reset", "medium_billing_and_outage",
+                    "hard_security_and_retention"). If None, uses default_task_id.
+        
+        Returns:
+            Initial Observation with task metadata and ticket queue.
+        
+        Raises:
+            ValueError: If task_id is unknown.
+        """
         task_key = task_id or self.default_task_id
         if task_key not in self.tasks:
             raise ValueError(f"Unknown task_id: {task_key}")
@@ -55,11 +84,40 @@ class CustomerSupportEnv:
         return self._build_observation(hints=["Start by prioritizing urgent or security-sensitive tickets."])
 
     def state(self) -> EnvironmentState:
+        """Get complete current environment state.
+        
+        Returns:
+            EnvironmentState with all ticket details, action history, and progress.
+        
+        Raises:
+            RuntimeError: If reset() not called yet.
+        """
         if self._state is None:
             raise RuntimeError("Environment is not initialized. Call reset() first.")
         return deepcopy(self._state)
 
     def step(self, action: Action) -> Tuple[Observation, Reward, bool, InfoPayload]:
+        """Execute one agent action in the environment.
+        
+        Args:
+            action: The Action to execute (must be valid per _validate_action).
+        
+        Returns:
+            - observation: Updated Observation after action
+            - reward: Reward with score, progress, penalties, and reason
+            - done: Whether episode is complete (goal reached or max steps)
+            - info: Dict with step metadata, final_score (if done), and grading_breakdown (if done)
+        
+        Raises:
+            RuntimeError: If reset() not called or episode already done.
+        
+        Notes:
+            Reward is shaped:
+            - Base: -0.01 per step (time cost)
+            - Progress: difference in grader.partial_score()
+            - Invalid action: up to -0.12 penalty
+            - Loop detection: -0.05 if repeating same action 3x on same ticket
+        """
         if self._state is None:
             raise RuntimeError("Environment is not initialized. Call reset() first.")
         if self._state.done:
@@ -121,6 +179,11 @@ class CustomerSupportEnv:
         return observation, reward, done, info
 
     def _validate_action(self, action: Action) -> Tuple[bool, str]:
+        """Validate action is well-formed and legal in current state.
+        
+        Returns:
+            (is_valid, reason_string)
+        """
         if action.action_type == ActionType.OPEN_TICKET:
             required = [action.customer_name, action.customer_email, action.subject, action.body]
             if not all(required):
@@ -135,9 +198,9 @@ class CustomerSupportEnv:
             return False, "Cannot perform action on closed ticket"
 
         if action.action_type == ActionType.CLASSIFY_TICKET and action.category is None:
-            return False, "classify_ticket requires category"
+            return False, f"classify_ticket requires category field"
         if action.action_type == ActionType.ASSIGN_TICKET and action.assigned_team is None:
-            return False, "assign_ticket requires assigned_team"
+            return False, f"assign_ticket requires assigned_team field; available: {', '.join(t.value for t in TeamName)}"
         if action.action_type in {ActionType.ADD_INTERNAL_NOTE, ActionType.DRAFT_REPLY} and not action.content:
             return False, f"{action.action_type.value} requires content"
         if action.action_type == ActionType.SEND_REPLY and not (action.content or ticket.draft_reply):
@@ -146,6 +209,7 @@ class CustomerSupportEnv:
         return True, "ok"
 
     def _apply_action(self, action: Action) -> None:
+        """Apply valid action to internal state."""
         if action.action_type == ActionType.OPEN_TICKET:
             new_id = f"T-{9000 + len(self._state.tickets) + 1}"
             self._state.tickets[new_id] = Ticket(
@@ -204,16 +268,19 @@ class CustomerSupportEnv:
             return
 
     def _loop_penalty(self) -> float:
+        """Detect and penalize looping (same action 3+ times on same ticket)."""
         if len(self._state.action_history) < 3:
             return 0.0
 
         last_three = self._state.action_history[-3:]
         first = last_three[0]
+        # Check if last 3 actions are identical (same type + ticket)
         if all(a.action_type == first.action_type and a.ticket_id == first.ticket_id for a in last_three):
             return -0.05
         return 0.0
 
     def _build_observation(self, hints: List[str]) -> Observation:
+        """Construct Observation from current state."""
         summaries = []
         open_count = 0
         escalated_count = 0
@@ -265,6 +332,7 @@ class CustomerSupportEnv:
         )
 
     def _hints_for_state(self) -> List[str]:
+        """Generate contextual hints for current state."""
         hints: List[str] = []
         if any(ticket.sla_minutes_remaining <= 60 for ticket in self._state.tickets.values()):
             hints.append("At least one ticket has <= 60 minutes remaining SLA; prioritize it.")

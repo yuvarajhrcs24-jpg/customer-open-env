@@ -9,6 +9,18 @@ from customer_support_env.models import Ticket
 
 @dataclass(frozen=True)
 class TaskSpec:
+    """Task specification with initial state and success criteria.
+
+    Attributes:
+        task_id: Unique task identifier
+        difficulty: "easy", "medium", or "hard"
+        title: Human-readable task name
+        objective: Task description for agent
+        success_criteria: Grading criteria explanation
+        max_steps: Episode step limit
+        initial_tickets: Initial customer tickets
+    """
+
     task_id: str
     difficulty: str
     title: str

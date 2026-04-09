@@ -18,7 +18,20 @@ def _contains_any(texts: List[str], words: List[str]) -> bool:
 
 
 class TaskGrader:
+    """Deterministic grader for all tasks.
+    
+        Computes partial_score() at each step (for reward shaping) and
+        final_result() at episode end with detailed breakdown by criterion.
+    
+        All scoring is deterministic and deterministic: same state always
+        produces same score.
+    """
+
     def partial_score(self, state: EnvironmentState) -> float:
+        """Compute progress toward task goal [0, 1] at current state.
+        
+        Used for reward shaping during episode.
+        """
         task_id = state.task_id
         if task_id == "easy_password_reset":
             return self._easy_progress(state)
@@ -29,6 +42,11 @@ class TaskGrader:
         return 0.0
 
     def final_result(self, state: EnvironmentState) -> TaskResult:
+        """Compute final task score and grading breakdown.
+        
+        Called at episode end. breakdown maps criterion names to scores,
+        summed to produce final score.
+        """
         task_id = state.task_id
         if task_id == "easy_password_reset":
             breakdown = self._easy_breakdown(state)
@@ -50,6 +68,7 @@ class TaskGrader:
         )
 
     def _easy_progress(self, state: EnvironmentState) -> float:
+        """Progress for easy_password_reset task."""
         return min(1.0, sum(self._easy_breakdown(state).values()))
 
     def _medium_progress(self, state: EnvironmentState) -> float:
@@ -59,6 +78,12 @@ class TaskGrader:
         return min(1.0, sum(self._hard_breakdown(state).values()))
 
     def _easy_breakdown(self, state: EnvironmentState) -> Dict[str, float]:
+        """Grading breakdown for easy task:
+        - classified_account: ticket category is account (0.2)
+        - assigned_frontline: assigned to frontline team (0.2)
+        - sent_password_reply: reply mentions password/reset/signin (0.3)
+        - closed: ticket status is closed (0.3)
+        """
         ticket = state.tickets["T-1001"]
         score = {
             "classified_account": 0.2 if ticket.category == TicketCategory.ACCOUNT else 0.0,
@@ -71,6 +96,14 @@ class TaskGrader:
         return score
 
     def _medium_breakdown(self, state: EnvironmentState) -> Dict[str, float]:
+        """Grading breakdown for medium task:
+        - outage_priority_and_team: T-2002 is urgent + technical (0.25)
+            - outage_resolved_first: outage closed before billing (0.15)
+            - outage_closed: T-2002 closed (0.20)
+            - billing_assigned_and_refund_reply: T-2001 in billing team + refund keyword (0.20)
+            - billing_closed: T-2001 closed (0.15)
+            - avoid_unnecessary_escalation: T-2003 not escalated (0.05)
+            """
         billing = state.tickets["T-2001"]
         outage = state.tickets["T-2002"]
 
@@ -95,6 +128,15 @@ class TaskGrader:
         return score
 
     def _hard_breakdown(self, state: EnvironmentState) -> Dict[str, float]:
+        """Grading breakdown for hard task:
+        - security_classified_escalated: T-3001 security team + escalated/closed (0.20)
+        - security_ordering: escalate T-3001 before close (0.15)
+        - security_closed: T-3001 closed (0.15)
+        - retention_assignment: T-3002 assigned retention team (0.15)
+        - retention_empathetic_reply: reply has sorry/understand/improve/priority keywords (0.15)
+        - retention_closed: T-3002 closed (0.10)
+        - shipping_handled: T-3003 pending/closed with customer reply (0.10)
+        """
         security = state.tickets["T-3001"]
         retention = state.tickets["T-3002"]
         shipping = state.tickets["T-3003"]

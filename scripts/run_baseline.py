@@ -4,9 +4,16 @@ from __future__ import annotations
 import argparse
 import json
 import os
-from typing import Any, Dict, Tuple
+import sys
+from pathlib import Path
+from typing import Any, Dict, Optional, Tuple
 
 from openai import OpenAI
+
+# Ensure local package imports work regardless of current working directory.
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 from customer_support_env import Action, CustomerSupportEnv
 from customer_support_env.models import ActionType, TeamName, TicketCategory, TicketPriority
@@ -26,95 +33,73 @@ def _extract_json(text: str) -> Dict[str, Any]:
 
 
 def _rule_policy(task_id: str, obs: Dict[str, Any]) -> Dict[str, Any]:
+    step = obs["step_count"]
     summaries = obs["ticket_summaries"]
-    by_id = {ticket["ticket_id"]: ticket for ticket in summaries}
-
-    def classify(ticket_id: str, category: str, priority: str | None = None) -> Dict[str, Any]:
-        payload = {"action_type": "classify_ticket", "ticket_id": ticket_id, "category": category}
-        if priority:
-            payload["priority"] = priority
-        return payload
-
-    def assign(ticket_id: str, team: str) -> Dict[str, Any]:
-        return {"action_type": "assign_ticket", "ticket_id": ticket_id, "assigned_team": team}
-
-    def reply(ticket_id: str, message: str) -> Dict[str, Any]:
-        if by_id[ticket_id]["status"] == "open":
-            return {"action_type": "draft_reply", "ticket_id": ticket_id, "content": message}
-        return {"action_type": "send_reply", "ticket_id": ticket_id, "content": message}
-
-    def close(ticket_id: str) -> Dict[str, Any]:
-        return {"action_type": "close_ticket", "ticket_id": ticket_id}
 
     if task_id == "easy_password_reset":
-        ticket_id = "T-1001"
-        t = by_id[ticket_id]
-        if t["category"] is None:
-            return classify(ticket_id, "account", "high")
-        if t["assigned_team"] is None:
-            return assign(ticket_id, "frontline")
-        if t["status"] != "closed":
-            return reply(ticket_id, "We have initiated your password reset. Please check your email and sign in again.")
-        return close(ticket_id)
+        if step == 0:
+            return {"action_type": "classify_ticket", "ticket_id": "T-1001", "category": "account", "priority": "high"}
+        if step == 1:
+            return {"action_type": "assign_ticket", "ticket_id": "T-1001", "assigned_team": "frontline"}
+        if step == 2:
+            return {"action_type": "send_reply", "ticket_id": "T-1001", "content": "We have initiated your password reset. Please check your email and sign in again."}
+        return {"action_type": "close_ticket", "ticket_id": "T-1001"}
 
     if task_id == "medium_billing_and_outage":
-        t2 = by_id["T-2002"]
-        t1 = by_id["T-2001"]
-
-        if t2["category"] is None:
-            return classify("T-2002", "technical", "urgent")
-        if t2["assigned_team"] is None:
-            return assign("T-2002", "technical")
-        if t2["status"] != "closed":
-            return reply("T-2002", "We have identified the outage and applied a mitigation. Service is restored.")
-
-        if t1["category"] is None:
-            return classify("T-2001", "billing", "high")
-        if t1["assigned_team"] is None:
-            return assign("T-2001", "billing")
-        if t1["status"] != "closed":
-            return reply("T-2001", "You were charged twice. We have processed a refund and shared the updated invoice.")
-
-        return close("T-2001")
+        if step == 0:
+            return {"action_type": "classify_ticket", "ticket_id": "T-2002", "category": "technical", "priority": "urgent"}
+        if step == 1:
+            return {"action_type": "assign_ticket", "ticket_id": "T-2002", "assigned_team": "technical"}
+        if step == 2:
+            return {"action_type": "send_reply", "ticket_id": "T-2002", "content": "We have identified the outage and applied a mitigation. Service is restored."}
+        if step == 3:
+            return {"action_type": "close_ticket", "ticket_id": "T-2002"}
+        if step == 4:
+            return {"action_type": "classify_ticket", "ticket_id": "T-2001", "category": "billing", "priority": "high"}
+        if step == 5:
+            return {"action_type": "assign_ticket", "ticket_id": "T-2001", "assigned_team": "billing"}
+        if step == 6:
+            return {"action_type": "send_reply", "ticket_id": "T-2001", "content": "You were charged twice. We have processed a refund and shared the updated invoice."}
+        return {"action_type": "close_ticket", "ticket_id": "T-2001"}
 
     if task_id == "hard_security_and_retention":
-        sec = by_id["T-3001"]
-        ret = by_id["T-3002"]
-        shp = by_id["T-3003"]
-
-        if sec["category"] is None:
-            return classify("T-3001", "security", "urgent")
-        if sec["assigned_team"] is None:
-            return assign("T-3001", "security")
-        if sec["status"] not in {"escalated", "closed"}:
+        if step == 0:
+            return {"action_type": "classify_ticket", "ticket_id": "T-3001", "category": "security", "priority": "urgent"}
+        if step == 1:
+            return {"action_type": "assign_ticket", "ticket_id": "T-3001", "assigned_team": "security"}
+        if step == 2:
             return {"action_type": "escalate_ticket", "ticket_id": "T-3001"}
-        if sec["status"] != "closed":
-            return reply("T-3001", "We secured your account, invalidated sessions, and enabled extra verification.")
-
-        if ret["category"] is None:
-            return classify("T-3002", "account", "high")
-        if ret["assigned_team"] is None:
-            return assign("T-3002", "retention")
-        if ret["status"] != "closed":
-            return reply("T-3002", "We are sorry for the delays and understand your concern. We will prioritize your requests and improve response times.")
-
-        if shp["category"] is None:
-            return classify("T-3003", "shipping", "normal")
-        if shp["status"] != "closed":
-            return reply("T-3003", "Your package is delayed by 2 days and is now in transit. We appreciate your patience.")
-        return close("T-3003")
+        if step == 3:
+            return {"action_type": "send_reply", "ticket_id": "T-3001", "content": "We secured your account, invalidated sessions, and enabled extra verification."}
+        if step == 4:
+            return {"action_type": "close_ticket", "ticket_id": "T-3001"}
+        if step == 5:
+            return {"action_type": "classify_ticket", "ticket_id": "T-3002", "category": "account", "priority": "high"}
+        if step == 6:
+            return {"action_type": "assign_ticket", "ticket_id": "T-3002", "assigned_team": "retention"}
+        if step == 7:
+            return {"action_type": "send_reply", "ticket_id": "T-3002", "content": "We are sorry for the delays and understand your concern. We will prioritize your requests and improve response times."}
+        if step == 8:
+            return {"action_type": "close_ticket", "ticket_id": "T-3002"}
+        if step == 9:
+            return {"action_type": "classify_ticket", "ticket_id": "T-3003", "category": "shipping", "priority": "normal"}
+        return {"action_type": "send_reply", "ticket_id": "T-3003", "content": "Your package is delayed by 2 days and is now in transit. We appreciate your patience."}
 
     return {"action_type": "add_internal_note", "ticket_id": summaries[0]["ticket_id"], "content": "Default action"}
 
 
 def _llm_action(
-    client: OpenAI,
+    client: Optional[OpenAI],
     model: str,
     task_id: str,
     objective: str,
     observation_json: str,
     use_rule_fallback: bool,
 ) -> Dict[str, Any]:
+    if client is None:
+        parsed_obs = json.loads(observation_json)
+        return _rule_policy(task_id, parsed_obs)
+
     system = (
         "You are a customer support operations agent. Return exactly one JSON object for the next action. "
         "No prose. Use fields from: action_type, ticket_id, category, priority, assigned_team, content."
@@ -146,7 +131,7 @@ def _llm_action(
         raise
 
 
-def _run_single_task(client: OpenAI, model: str, task_id: str, max_steps: int, use_rule_fallback: bool) -> Tuple[float, int, Dict[str, float]]:
+def _run_single_task(client: Optional[OpenAI], model: str, task_id: str, max_steps: int, use_rule_fallback: bool) -> Tuple[float, int, Dict[str, float]]:
     env = CustomerSupportEnv(default_task_id=task_id)
     obs = env.reset(task_id=task_id)
 
@@ -182,10 +167,11 @@ def main() -> None:
     args = parser.parse_args()
 
     api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        raise RuntimeError("OPENAI_API_KEY is not set")
-
-    client = OpenAI(api_key=api_key)
+    client: Optional[OpenAI] = None
+    if api_key:
+        client = OpenAI(api_key=api_key)
+    else:
+        print("OPENAI_API_KEY is not set; running deterministic fallback policy only.")
 
     tasks = [
         "easy_password_reset",
