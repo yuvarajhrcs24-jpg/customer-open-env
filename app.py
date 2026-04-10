@@ -9,6 +9,7 @@ from typing import Any
 import gradio as gr
 import uvicorn
 from fastapi import Body, FastAPI, HTTPException
+from fastapi.responses import JSONResponse
 
 from customer_support_env import Action, CustomerSupportEnv
 
@@ -766,6 +767,21 @@ def _reset_response(payload: dict[str, Any]) -> dict[str, Any]:
 @api_app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@api_app.get("/manifest.json")
+def manifest() -> JSONResponse:
+    return JSONResponse(
+        {
+            "name": "Customer Support OpenEnv",
+            "short_name": "OpenEnv",
+            "start_url": "/",
+            "display": "standalone",
+            "background_color": "#0b1220",
+            "theme_color": "#18826e",
+            "icons": [],
+        }
+    )
 
 
 @api_app.post("/reset")
