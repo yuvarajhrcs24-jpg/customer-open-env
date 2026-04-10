@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "customer-open-env"
+version = "1.0.0"
+description = "Customer Support Environment - OpenEnv compatible interactive environment for customer support task solving"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "gradio==5.25.2",
+    "openai==1.75.0",
+    "pydantic==2.11.3",
+    "pyyaml==6.0.2",
+    "requests==2.32.3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "black>=22.0",
+    "isort>=5.0",
+]
+
+[tool.setuptools]
+packages = ["customer_support_env"]
+
+[tool.black]
+line-length = 100
+target-version = ["py39", "py310", "py311"]
+
+[tool.isort]
+profile = "black"
+line_length = 100
