@@ -7,6 +7,8 @@ from datetime import datetime, timezone
 from typing import Any
 
 import gradio as gr
+import uvicorn
+from fastapi import Body, FastAPI, HTTPException
 
 from customer_support_env import Action, CustomerSupportEnv
 
@@ -21,6 +23,7 @@ Provides interactive exploration of the environment:
 """
 
 env = CustomerSupportEnv(default_task_id="easy_password_reset")
+api_app = FastAPI(title="Customer Support OpenEnv API")
 
 
 ACTION_TEMPLATES: dict[str, dict[str, Any]] = {
@@ -736,6 +739,76 @@ def run_task_playbook(task_id: str) -> tuple[
     )
 
 
+def _read_task_id(payload: dict[str, Any]) -> str | None:
+    task_id = payload.get("task_id")
+    if task_id is None:
+        return None
+    if not isinstance(task_id, str):
+        raise HTTPException(status_code=400, detail="task_id must be a string")
+    return task_id
+
+
+def _read_action_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    candidate = payload.get("action") if isinstance(payload.get("action"), dict) else payload
+    if not isinstance(candidate, dict) or "action_type" not in candidate:
+        raise HTTPException(status_code=400, detail="Action payload must include action_type")
+    return candidate
+
+
+def _reset_response(payload: dict[str, Any]) -> dict[str, Any]:
+    try:
+        observation = env.reset(task_id=_read_task_id(payload))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return observation.model_dump()
+
+
+@api_app.get("/health")
+def health() -> dict[str, str]:
+    return {"status": "ok"}
+
+
+@api_app.post("/reset")
+@api_app.post("/openenv/reset")
+def reset_api(payload: dict[str, Any] | None = Body(default=None)) -> dict[str, Any]:
+    return _reset_response(payload or {})
+
+
+@api_app.post("/step")
+@api_app.post("/openenv/step")
+def step_api(payload: dict[str, Any] | None = Body(default=None)) -> dict[str, Any]:
+    try:
+        if env.state().done:
+            raise HTTPException(status_code=400, detail="Episode already completed. Call reset() first.")
+        action_payload = _read_action_payload(payload or {})
+        action = Action.model_validate(action_payload)
+        obs, reward, done, info = env.step(action)
+    except HTTPException:
+        raise
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid action payload: {exc}") from exc
+
+    return {
+        "observation": obs.model_dump(),
+        "reward": reward.model_dump(),
+        "done": done,
+        "info": info,
+    }
+
+
+@api_app.get("/state")
+@api_app.get("/openenv/state")
+@api_app.post("/state")
+@api_app.post("/openenv/state")
+def state_api() -> dict[str, Any]:
+    try:
+        return env.state().model_dump()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
 with gr.Blocks(title="Customer Support OpenEnv", css=CUSTOM_CSS) as demo:
     gr.HTML(
         """
@@ -911,6 +984,9 @@ with gr.Blocks(title="Customer Support OpenEnv", css=CUSTOM_CSS) as demo:
     export_btn.click(export_session_log, inputs=[session_log], outputs=[export_file, status])
 
 
+asgi_app = gr.mount_gradio_app(api_app, demo, path="/")
+
+
 if __name__ == "__main__":
-    # Never enable share tunnel in Spaces; this can trigger abuse/proxy flags.
-    demo.launch(server_name="0.0.0.0", server_port=7860, share=False)
+    # Keep Gradio mounted at root while exposing explicit OpenEnv API routes.
+    uvicorn.run(asgi_app, host="0.0.0.0", port=7860)
