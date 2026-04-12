@@ -226,6 +226,7 @@ Main entrypoint: `inference.py`
 ### Environment variables
 
 ```bash
+export API_KEY="provided_proxy_key"             # used by the competition proxy
 export OPENAI_API_KEY="your_openai_key"           # required for LLM calls
 export API_BASE_URL="https://api.openai.com/v1"   # optional override
 export MODEL_NAME="gpt-4o-mini"                   # optional override

@@ -4,7 +4,8 @@
 Runs the Customer Support OpenEnv environment with LLM + deterministic fallback.
 
 Environment Variables (all optional):
-    - OPENAI_API_KEY: Optional. If missing, deterministic fallback policy is used.
+    - API_KEY: Optional. If missing, deterministic fallback policy is used.
+    - OPENAI_API_KEY: Optional local fallback for compatibility.
     - API_BASE_URL: API endpoint (default: https://api.openai.com/v1)
     - MODEL_NAME: Model to use (default: gpt-4o-mini)
     - HF_TOKEN: HF auth (optional)
@@ -43,8 +44,8 @@ MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4o-mini")
 HF_TOKEN = os.getenv("HF_TOKEN")
 LOCAL_IMAGE_NAME = os.getenv("LOCAL_IMAGE_NAME")
 
-# Derive API key from environment (OpenAI-specific)
-API_KEY = os.getenv("OPENAI_API_KEY")
+# Prefer the injected proxy key, but keep the standard OpenAI env var as a local fallback.
+API_KEY = os.getenv("API_KEY") or os.getenv("OPENAI_API_KEY")
 USE_LLM = bool(API_KEY)
 
 
