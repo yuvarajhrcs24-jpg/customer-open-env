@@ -78,9 +78,10 @@ def _log_step(step: int, action: Dict[str, Any], reward: float, progress: float,
         "progress": progress,
         "done": done,
     }
+    action_json = json.dumps(action, separators=(",", ":"))
     print(
         f"[STEP] step={step} reward={reward:.4f} progress={progress:.4f} "
-        f"done={str(done).lower()} action={json.dumps(action, separators=(",", ":"))}",
+        f"done={str(done).lower()} action={action_json}",
         flush=True,
     )
     print(json.dumps(log_entry), flush=True)
@@ -95,9 +96,10 @@ def _log_end(task_id: str, final_score: float, steps: int, breakdown: Dict[str, 
         "steps": steps,
         "grading_breakdown": breakdown,
     }
+    breakdown_json = json.dumps(breakdown, separators=(",", ":"))
     print(
         f"[END] task={task_id} score={final_score:.4f} steps={steps} "
-        f"breakdown={json.dumps(breakdown, separators=(",", ":"))}",
+        f"breakdown={breakdown_json}",
         flush=True,
     )
     print(json.dumps(log_entry), flush=True)
