@@ -54,18 +54,22 @@ USE_LLM = bool(API_KEY)
 
 
 def _log_start(task_id: str, objective: str) -> None:
-    """Log episode start in standardized format."""
+    """Log episode start in validator-compatible stdout format."""
     log_entry = {
         "type": "START",
         "task_id": task_id,
         "model": MODEL_NAME,
         "objective": objective,
     }
-    print(json.dumps(log_entry), file=sys.stderr)
+    print(
+        f"[START] task={task_id} model={MODEL_NAME} objective={json.dumps(objective)}",
+        flush=True,
+    )
+    print(json.dumps(log_entry), flush=True)
 
 
 def _log_step(step: int, action: Dict[str, Any], reward: float, progress: float, done: bool) -> None:
-    """Log each step in standardized format."""
+    """Log each step in validator-compatible stdout format."""
     log_entry = {
         "type": "STEP",
         "step": step,
@@ -74,11 +78,16 @@ def _log_step(step: int, action: Dict[str, Any], reward: float, progress: float,
         "progress": progress,
         "done": done,
     }
-    print(json.dumps(log_entry), file=sys.stderr)
+    print(
+        f"[STEP] step={step} reward={reward:.4f} progress={progress:.4f} "
+        f"done={str(done).lower()} action={json.dumps(action, separators=(",", ":"))}",
+        flush=True,
+    )
+    print(json.dumps(log_entry), flush=True)
 
 
 def _log_end(task_id: str, final_score: float, steps: int, breakdown: Dict[str, float]) -> None:
-    """Log episode end in standardized format."""
+    """Log episode end in validator-compatible stdout format."""
     log_entry = {
         "type": "END",
         "task_id": task_id,
@@ -86,7 +95,12 @@ def _log_end(task_id: str, final_score: float, steps: int, breakdown: Dict[str, 
         "steps": steps,
         "grading_breakdown": breakdown,
     }
-    print(json.dumps(log_entry), file=sys.stderr)
+    print(
+        f"[END] task={task_id} score={final_score:.4f} steps={steps} "
+        f"breakdown={json.dumps(breakdown, separators=(",", ":"))}",
+        flush=True,
+    )
+    print(json.dumps(log_entry), flush=True)
 
 
 def _extract_json(text: str) -> Dict[str, Any]:
