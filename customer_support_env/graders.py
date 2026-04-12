@@ -90,7 +90,9 @@ class TaskGrader:
         else:
             breakdown = {"unknown_task": 0.0}
 
-        total = max(0.0, min(1.0, sum(breakdown.values())))
+        total = sum(breakdown.values())
+        # Keep the final score strictly inside (0, 1) to satisfy evaluator constraints.
+        total = max(0.0001, min(0.9999, total))
         return TaskResult(
             task_id=task_id,
             score=round(total, 4),
