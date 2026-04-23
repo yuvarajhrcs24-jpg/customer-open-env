@@ -23,7 +23,16 @@ Provides interactive exploration of the environment:
 - Monitor reward signals and progress
 """
 
-env = CustomerSupportEnv(default_task_id="easy_password_reset")
+# Initialize environment with error handling
+try:
+    env = CustomerSupportEnv(default_task_id="easy_password_reset")
+except Exception as e:
+    import sys
+    print(f"FATAL: Failed to initialize environment: {e}", file=sys.stderr)
+    import traceback
+    traceback.print_exc()
+    sys.exit(1)
+
 api_app = FastAPI(title="Customer Support OpenEnv API")
 
 
@@ -1005,4 +1014,6 @@ asgi_app = gr.mount_gradio_app(api_app, demo, path="/")
 
 if __name__ == "__main__":
     # Keep Gradio mounted at root while exposing explicit OpenEnv API routes.
-    uvicorn.run(asgi_app, host="0.0.0.0", port=7860)
+    host = os.getenv("HOST", "0.0.0.0")
+    port = int(os.getenv("PORT", "7860"))
+    uvicorn.run(asgi_app, host=host, port=port, log_level="info")
